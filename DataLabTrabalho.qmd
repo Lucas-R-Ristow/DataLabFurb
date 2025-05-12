@@ -1,0 +1,182 @@
+---
+title: "Trabalho | Laboratiorio de Dados"
+format: html
+editor: visual
+---
+
+# PIB per Capita dos 10 Maiores Países da União Europeia
+
+O PIB per capita mede a produção econômica média por pessoa e é frequentemente utilizado como indicador do padrão de vida em diferentes países. Ao analisar os 10 maiores países da União Europeia, podemos observar as disparidades econômicas dentro do bloco e identificar as economias mais robustas em termos de produtividade por habitante.
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(scales)
+library(tidyr)
+library(knitr)
+library(lubridate)
+```
+
+```{r pib-per-capita, echo=FALSE, warning=FALSE, message=FALSE}
+# Dados do PIB per capita dos 10 maiores países da UE (2018-2022)
+paises_ue <- c("Luxemburgo", "Irlanda", "Dinamarca", "Holanda", "Áustria", 
+               "Suécia", "Bélgica", "Alemanha", "Finlândia", "França")
+
+# Dados para múltiplos anos (2018-2022)
+dados_pib <- data.frame(
+  Pais = rep(paises_ue, each = 5),
+  Ano = rep(2018:2022, times = 10),
+  PIB_Per_Capita = c(
+    # Luxemburgo
+    116795, 118870, 119058, 123235, 126370,
+    # Irlanda
+    81005, 85330, 87996, 97905, 99239,
+    # Dinamarca
+    61600, 59830, 61375, 66520, 68007,
+    # Holanda
+    54610, 55790, 55700, 57055, 57815,
+    # Áustria
+    51175, 51575, 50105, 53670, 55218,
+    # Suécia
+    54970, 51945, 52270, 53400, 54146,
+    # Bélgica
+    47545, 47870, 46640, 51095, 52293,
+    # Alemanha
+    48430, 47810, 47180, 50770, 51203,
+    # Finlândia
+    50060, 49150, 49265, 51270, 49853,
+    # França
+    43060, 43055, 41747, 44870, 46062
+  )
+)
+
+# Função para calcular o ranking por ano
+dados_pib <- dados_pib %>%
+  group_by(Ano) %>%
+  mutate(Ranking = rank(-PIB_Per_Capita)) %>%
+  ungroup()
+
+# Converter país para fator ordenado pelo último ano (2022)
+paises_ordem <- dados_pib %>%
+  filter(Ano == 2022) %>%
+  arrange(-PIB_Per_Capita) %>%
+  pull(Pais)
+
+dados_pib$Pais <- factor(dados_pib$Pais, levels = paises_ordem)
+
+# Gráfico de linhas com pontos
+ggplot(dados_pib, aes(x = Ano, y = PIB_Per_Capita, color = Pais, group = Pais)) +
+  geom_line(size = 1) +
+  geom_point(size = 2.5) +
+  scale_y_continuous(labels = scales::dollar_format(), 
+                     breaks = seq(0, 130000, 20000),
+                     limits = c(40000, 130000)) +
+  scale_x_continuous(breaks = 2018:2022) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "PIB per Capita dos 10 Maiores Países da União Europeia (2018-2022)",
+       subtitle = "Em dólares americanos (USD)",
+       x = "Ano",
+       y = "PIB Per Capita (USD)",
+       caption = "Fonte: Banco Mundial") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 11),
+    legend.position = "right",
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+```
+
+```         
+```
+
+A análise do gráfico revela grandes disparidades entre os países da União Europeia, com Luxemburgo liderando com ampla margem (\$126.370), seguido pela Irlanda (\$99.239). O alto PIB per capita de Luxemburgo é resultado de sua economia especializada em serviços financeiros e baixa população, enquanto países com economias mais diversificadas e populações maiores como França e Alemanha apresentam valores menores, embora ainda expressivos em comparação global.
+
+# Evolução do PIB dos Países BRICS (2012-2022)
+
+O PIB total dos países BRICS (Brasil, Rússia, Índia, China e África do Sul) representa o valor monetário de todos os bens e serviços finais produzidos nestes países emergentes em determinado período. Acompanhar a evolução do PIB destes países é essencial para compreender mudanças na dinâmica econômica global e o crescente papel destas economias emergentes.
+
+```{r pib-brics, echo=FALSE, warning=FALSE, message=FALSE}
+# Dados da evolução do PIB dos países BRICS (trilhões de dólares)
+anos <- 2012:2022
+
+# PIB em trilhões de dólares
+china <- c(8.53, 9.57, 10.48, 11.06, 11.23, 12.31, 13.89, 14.34, 14.72, 17.73, 17.96)
+india <- c(1.82, 1.86, 2.04, 2.10, 2.29, 2.65, 2.70, 2.83, 2.67, 3.18, 3.39)
+brasil <- c(2.47, 2.47, 2.46, 1.80, 1.80, 2.06, 1.92, 1.84, 1.45, 1.61, 1.92)
+russia <- c(2.21, 2.29, 2.06, 1.36, 1.28, 1.57, 1.66, 1.69, 1.48, 1.78, 2.24)
+africasul <- c(0.40, 0.37, 0.35, 0.32, 0.30, 0.35, 0.37, 0.36, 0.34, 0.42, 0.41)
+
+# Criar dataframe longo para ggplot
+dados_brics <- data.frame(
+  Ano = rep(anos, 5),
+  PIB = c(china, india, brasil, russia, africasul),
+  Pais = factor(rep(c("China", "Índia", "Brasil", "Rússia", "África do Sul"), each = length(anos)))
+)
+
+# Gráfico de linhas
+ggplot(dados_brics, aes(x = Ano, y = PIB, color = Pais, group = Pais)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2.5) +
+  scale_y_continuous(labels = function(x) paste0(x, " T"), breaks = seq(0, 18, 3)) +
+  scale_color_manual(values = c("China" = "#E41A1C", "Índia" = "#FF7F00", 
+                               "Brasil" = "#4DAF4A", "Rússia" = "#377EB8", 
+                               "África do Sul" = "#984EA3")) +
+  labs(title = "Evolução do PIB dos Países BRICS (2012-2022)",
+       subtitle = "Em trilhões de dólares americanos (USD)",
+       x = "Ano",
+       y = "PIB (Trilhões USD)",
+       caption = "Fonte: Banco Mundial") +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 11),
+    panel.grid.minor = element_blank()
+  )
+```
+
+O gráfico ilustra claramente o domínio econômico da China entre os países BRICS, com crescimento consistente ao longo da década analisada, alcançando quase 18 trilhões de dólares em 2022. A Índia apresenta a segunda maior economia do grupo, com crescimento constante porém menos acelerado que a China. Brasil e Rússia mostram trajetórias mais instáveis, refletindo suas vulnerabilidades a fatores externos e crises internas, enquanto a África do Sul mantém-se como a menor economia do grupo, com variações menos expressivas em termos absolutos.
+
+# Exportações de Alta Tecnologia do Japão (2012-2022)
+
+As exportações de alta tecnologia do Japão correspondem à participação percentual desses produtos — como eletrônicos, equipamentos de aviação e produtos farmacêuticos — no total de exportações do país. Essa métrica reflete a intensidade tecnológica da economia japonesa e sua competitividade global em setores de alto valor agregado.
+
+```{r japao-tech, echo=FALSE, warning=FALSE, message=FALSE}
+# Dados das exportações de alta tecnologia do Japão (% do total de exportações)
+anos <- 2012:2022
+exportacoes_percentual <- c(17.4, 16.8, 16.7, 16.8, 16.2, 17.2, 17.3, 17.3, 17.6, 18.1, 17.8)
+
+# Criar dataframe
+dados_japao <- data.frame(
+  Ano = anos,
+  Porcentagem = exportacoes_percentual
+)
+
+# Gráfico de linhas com linha de tendência
+ggplot(dados_japao, aes(x = Ano, y = Porcentagem)) +
+  geom_line(color = "#E34234", size = 1.2) +
+  geom_point(color = "#E34234", size = 3) +
+  geom_smooth(method = "loess", se = FALSE, linetype = "dashed", color = "#666666", size = 0.8) +
+  scale_y_continuous(limits = c(15, 19), labels = function(x) paste0(x, "%")) +
+  scale_x_continuous(breaks = anos) +
+  labs(title = "Exportações de Alta Tecnologia do Japão (2012-2022)",
+       subtitle = "Percentual do total de exportações",
+       x = "Ano",
+       y = "Porcentagem do Total de Exportações",
+       caption = "Fonte: Banco Mundial") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    plot.subtitle = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid.minor = element_blank()
+  )
+```
+
+O gráfico apresenta a evolução da participação das exportações de alta tecnologia no Japão de 2012 a 2022. Nota-se uma relativa estabilidade nos dados, oscilando entre 16,2% e 18,1%, com leve tendência de crescimento nos últimos anos do período analisado. Após um período de queda entre 2012 e 2016, observa-se uma recuperação gradual a partir de 2017, culminando com o pico de 18,1% em 2021, seguido de leve retração em 2022.
+
+Apesar da tradição japonesa em setores tecnológicos, a estabilidade relativa desse indicador sugere desafios na expansão da competitividade internacional em alta tecnologia, especialmente diante do avanço de outros países asiáticos no setor, como Coreia do Sul e China. No entanto, o leve crescimento nos últimos anos pode indicar uma adaptação bem-sucedida às novas dinâmicas tecnológicas globais.
