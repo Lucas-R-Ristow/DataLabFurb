@@ -1,0 +1,269 @@
+---
+title: "*Avaliação 2 - Lucas Romão Ristow*"
+format: html
+editor: visual
+---
+
+# **Evolução do ROE de Instituições Tomadoras de Depósitos no Brasil**
+
+## **1. O que é o ROE (Return on Equity)?**
+
+O ROE (Return on Equity) representa um dos indicadores mais relevantes para avaliar a eficiência financeira de instituições do mercado de crédito. Este indicador expressa a capacidade de uma organização em converter o capital dos acionistas em lucro, sendo calculado pela divisão do lucro líquido pelo patrimônio líquido médio. Para instituições tomadoras de depósitos, o ROE reflete a eficácia da gestão de recursos e a sustentabilidade do modelo operacional adotado.
+
+## **2. Evolução do ROE no Brasil (2015-2024)**
+
+A trajetória do ROE das instituições tomadoras de depósitos no Brasil entre 2015 e 2024 revela oscilações marcantes no desempenho do setor. O período iniciou com 14,24% e registrou 14,94% em abril de 2024, demonstrando estabilidade relativa apesar dos choques econômicos. Durante este intervalo, o indicador oscilou entre um mínimo de 9,48% (abril de 2016) e um pico de 18,56% (janeiro de 2019), com média histórica de 13,58%. A análise da série histórica, extraída do Banco Central (ID 29403), permite identificar como a rentabilidade do setor é diretamente impactada pelo contexto econômico nacional.
+
+```{r}
+#| label: load-packages
+#| include: false
+
+# 1. Instalar e carregar ragg para gerar PNGs em ambiente headless
+if (!requireNamespace("ragg", quietly = TRUE)) {
+  install.packages("ragg")
+}
+library(ragg)
+
+# 2. Instalar e carregar GetBCBData para baixar séries do Banco Central
+if (!requireNamespace("GetBCBData", quietly = TRUE)) {
+  install.packages("GetBCBData")
+}
+library(GetBCBData)
+
+# 3. Instalar e carregar tidyverse para manipulação de dados
+if (!requireNamespace("tidyverse", quietly = TRUE)) {
+  install.packages("tidyverse")
+}
+library(tidyverse)
+
+# 4. Instalar e carregar scales para formatação de eixos
+if (!requireNamespace("scales", quietly = TRUE)) {
+  install.packages("scales")
+}
+library(scales)
+
+# 5. Instalar e carregar gganimate para animar o gráfico
+if (!requireNamespace("gganimate", quietly = TRUE)) {
+  install.packages("gganimate")
+}
+library(gganimate)
+
+# 6. Instalar e carregar gifski para montar o GIF final
+if (!requireNamespace("gifski", quietly = TRUE)) {
+  install.packages("gifski")
+}
+library(gifski)
+
+# 7. Garantir que, se algo tentar chamar png(), use Cairo interno
+options(bitmapType = "cairo")
+```
+
+```{r}
+#| label: load-data
+#| include: false
+
+# 1. Definição da série (ROE de Instituições Tomadoras de Crédito: ID = 29403)
+my.id <- c(roe_instituicoes = 29403)
+
+# 2. Obtenção dos dados do Banco Central (GetBCBData)
+df.bcb <- gbcbd_get_series(
+  id          = my.id,
+  first.date  = "2015-01-01",
+  last.date   = Sys.Date(),
+  format.data = "long",
+  use.memoise = TRUE,
+  cache.path  = tempdir(),
+  do.parallel = FALSE
+)
+
+# 3. Organiza em ordem cronológica e cria coluna 'cumdate' para a animação
+df.bcb <- df.bcb %>%
+  arrange(ref.date) %>%
+  mutate(cumdate = ref.date) %>%
+  filter(!is.na(value))
+
+# 4. Extrai valores inicial e final para anotações
+pontos_reais   <- df.bcb %>% filter(!is.na(value))
+primeiro_ponto <- slice_head(pontos_reais, n = 1)
+ultimo_ponto   <- slice_tail(pontos_reais, n = 1)
+
+# 5. Calcula estatísticas históricas
+valor_inicial <- primeiro_ponto$value
+data_inicial  <- primeiro_ponto$ref.date
+
+valor_final <- ultimo_ponto$value
+data_final  <- ultimo_ponto$ref.date
+
+valor_maximo <- max(pontos_reais$value, na.rm = TRUE)
+data_maxima  <- pontos_reais$ref.date[which.max(pontos_reais$value)]
+
+valor_minimo <- min(pontos_reais$value, na.rm = TRUE)
+data_minima  <- pontos_reais$ref.date[which.min(pontos_reais$value)]
+
+valor_medio <- mean(pontos_reais$value, na.rm = TRUE)
+
+# 6. Calcula posições verticais para os rótulos
+y_inicial <- ifelse(valor_inicial < 5, 10, valor_inicial + 2) + 1
+
+tentativa_final   <- valor_final + 2
+y_temp            <- ifelse(tentativa_final > 25, valor_final - 2, tentativa_final)
+y_final_ajustado  <- y_temp - 1
+
+# Posições para máxima e mínima
+y_maxima <- valor_maximo + 2
+y_minima <- valor_minimo - 2
+
+# 7. Data frames com as anotações
+df_inicial_annot <- tibble(
+  ref.date = data_inicial,
+  cumdate  = data_inicial,
+  y        = y_inicial,
+  label    = paste0(
+    "Início: ",
+    format(valor_inicial, big.mark = ".", decimal.mark = ",", nsmall = 1),
+    "%"
+  )
+)
+
+df_final_annot <- tibble(
+  ref.date = data_final,
+  cumdate  = data_final,
+  y        = y_final_ajustado,
+  label    = paste0(
+    "Atual: ",
+    format(valor_final, big.mark = ".", decimal.mark = ",", nsmall = 1),
+    "%"
+  )
+)
+
+df_maxima_annot <- tibble(
+  ref.date = data_maxima,
+  cumdate  = data_maxima,
+  y        = y_maxima,
+  label    = paste0(
+    "Máxima: ",
+    format(valor_maximo, big.mark = ".", decimal.mark = ",", nsmall = 1),
+    "%"
+  )
+)
+
+df_minima_annot <- tibble(
+  ref.date = data_minima,
+  cumdate  = data_minima,
+  y        = y_minima,
+  label    = paste0(
+    "Mínima: ",
+    format(valor_minimo, big.mark = ".", decimal.mark = ",", nsmall = 1),
+    "%"
+  )
+)
+```
+
+```{r}
+#| label: animated-graphic
+#| echo: false
+#| warning: false
+
+# 1. Construção do gráfico animado
+p_anim <- ggplot(df.bcb, aes(x = ref.date, y = value)) +
+  geom_line(color = "#4169E1", size = 1.2) +
+  geom_point(color = "#1E90FF", size = 3) +
+  geom_text(
+    data        = df_inicial_annot,
+    aes(x = ref.date, y = y, label = label, cumdate = cumdate),
+    hjust       = 0, vjust = 0,
+    nudge_x     = 100,
+    nudge_y     = 1,
+    color       = "#4169E1", size = 3.5, fontface = "bold",
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data        = df_final_annot,
+    aes(x = ref.date, y = y, label = label, cumdate = cumdate),
+    hjust       = 1, vjust = 0,
+    nudge_x     = -100,
+    nudge_y     = -0.5,
+    color       = "#4169E1", size = 3.5, fontface = "bold",
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data        = df_maxima_annot,
+    aes(x = ref.date, y = y, label = label, cumdate = cumdate),
+    hjust       = 0.5, vjust = 0,
+    nudge_y     = 0.5,
+    color       = "#228B22", size = 3.5, fontface = "bold",
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data        = df_minima_annot,
+    aes(x = ref.date, y = y, label = label, cumdate = cumdate),
+    hjust       = 0.5, vjust = 1,
+    nudge_y     = -0.5,
+    color       = "#DC143C", size = 3.5, fontface = "bold",
+    inherit.aes = FALSE
+  ) +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(n = 10),
+    labels = function(x) paste0(x, "%"),
+    expand = c(0.05, 0)
+  ) +
+  scale_x_date(
+    limits      = c(as.Date("2015-01-01"), max(df.bcb$ref.date)),
+    date_breaks = "1 year", date_labels = "%Y",
+    expand      = c(0, 0)
+  ) +
+  labs(
+    title    = "Evolução ROE Instituições Tomadoras de Depósitos (%)",
+    subtitle = paste0(
+      "Período: ",
+      format(min(df.bcb$ref.date), "%d/%m/%Y"),
+      " a ",
+      format(max(df.bcb$ref.date), "%d/%m/%Y")
+    ),
+    x       = "Ano", y = "ROE (%)",
+    caption = "Fonte: Banco Central do Brasil – Série ID 29403"
+  ) +
+  theme_light(base_size = 14) +
+  theme(
+    plot.title       = element_text(face = "bold", size = 20, color = "#34495e"),
+    plot.subtitle    = element_text(face = "italic", size = 12, color = "#7f8c8d"),
+    plot.caption     = element_text(size = 10, face = "italic"),
+    axis.title.x     = element_text(size = 18, face = "bold", color = "#2c3e50"),
+    axis.title.y     = element_text(size = 18, face = "bold", color = "#2c3e50"),
+    axis.text.x      = element_text(angle = 45, hjust = 1, color = "#2c3e50"),
+    axis.text.y      = element_text(color = "#2c3e50"),
+    panel.grid.major = element_line(color = "#ecf0f1"),
+    panel.grid.minor = element_blank()
+  ) +
+  transition_reveal(cumdate, keep_last = TRUE) +
+  ease_aes("linear")
+
+# 2. Renderiza a animação em 1600×1000 px para ficar mais nítida
+ani <- animate(
+  p_anim,
+  nframes   = 200,
+  fps       = 15,
+  end_pause = 20,
+  device    = "ragg_png", 
+  renderer  = gifski_renderer(loop = TRUE)
+)
+
+# 3. Exibe a animação no resultado HTML
+ani
+```
+
+## **3. Ciclos Econômicos e Dinâmica do ROE**
+
+As flutuações do ROE acompanham de perto os ciclos econômicos brasileiros. Em fases de crescimento, com juros controlados e maior demanda por crédito, observa-se elevação da rentabilidade. O valor mais baixo (9,48% em abril de 2016) coincidiu com um cenário de crise econômica e instabilidade política, enquanto o pico de 18,56% (janeiro de 2019) refletiu maior estabilidade macroeconômica e expansão do crédito. Já em períodos recessivos ou de aperto monetário, o ROE recua devido à retração do crédito e deterioração da qualidade das carteiras.
+
+## **4. Fatores Determinantes da Performance**
+
+A performance do setor é determinada por múltiplos fatores: eficiência operacional, qualidade da carteira de crédito, controle da inadimplência, estrutura de capital e adoção de tecnologias. Além disso, alterações regulatórias, decisões do Banco Central sobre a taxa Selic e o grau de competição no mercado afetam diretamente o ROE. Instituições que combinam solidez financeira com capacidade de adaptação tendem a sustentar rentabilidade superior mesmo em cenários desafiadores.
+
+## **5. Exemplos de Performance Individual**
+
+Grandes instituições brasileiras demonstram capacidade de manter ROE consistentemente acima da média histórica do setor (13,58%). Estes resultados mostram que, mesmo em ambientes voláteis, instituições bem estruturadas conseguem manter rentabilidade elevada através de estratégias diversificadas, gestão eficiente de riscos e constante inovação em produtos e serviços financeiros.
+
+## **6. Perspectivas Futuras para o Setor**
+
+O cenário futuro para as instituições tomadoras de depósitos dependerá da evolução do ambiente macroeconômico e regulatório brasileiro. A digitalização dos serviços financeiros, crescimento do Open Banking e avanços nas tecnologias de análise de risco representam oportunidades para melhoria da eficiência operacional e expansão da base de clientes. Simultaneamente, o aumento da concorrência, pressões regulatórias crescentes e necessidade de investimentos em tecnologia constituem desafios que podem impactar o ROE futuro do setor.
