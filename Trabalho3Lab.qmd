@@ -1,0 +1,144 @@
+---
+title: "Expectativa de Vida Mundial por Faixa Etária"
+format: html
+editor: visual
+---
+
+**UNIVERSIDADE:** Universidade Regional de Blumenau (FURB),
+
+**CURSO e DISCIPLINA:** Ciências Econômicas, Labaratório de Dados,
+
+**PROFESSOR:** Bruno Thiago Tomio,
+
+**INTEGRANTES:** Lucas Romão Ristow, Bernardo Imianovsky e Bruno Bertho.
+
+## 1 INTRODUÇÃO
+
+A expectativa de vida ao nascer constitui um dos principais indicadores demográficos para avaliação do desenvolvimento humano e das condições de vida de uma população. Este indicador reflete as condições socioeconômicas, sanitárias e de saúde pública de um país, representando o número médio de anos que um recém-nascido pode esperar viver, considerando-se as taxas de mortalidade específicas por idade vigentes no momento de seu nascimento. A análise da distribuição espacial da expectativa de vida mundial, classificada em faixas etárias, permite identificar padrões geográficos e temporais que revelam desigualdades no desenvolvimento humano entre diferentes regiões do planeta.
+
+## 2 OBJETIVOS
+
+O presente trabalho tem como objetivo analisar a evolução temporal da expectativa de vida mundial no período de 1960 a 2022, utilizando dados do Banco Mundial (indicador SP.DYN.LE00.IN). Especificamente, busca-se: a) mapear a distribuição geográfica da expectativa de vida classificada em faixas etárias (0-20, 21-40, 41-60, 61-80, 81-100 e 100+ anos); b) visualizar a evolução temporal através de animação cartográfica; e c) identificar padrões de convergência ou divergência na longevidade entre diferentes países e regiões ao longo do período analisado.
+
+```{r}
+#| label: setup
+#| include: false
+
+# Carregar pacotes sem mensagens
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(gganimate)
+  library(gifski)
+  library(viridis)
+  library(rnaturalearth)
+  library(sf)
+  library(WDI)
+})
+
+# Configuração especial para renderização no HTML
+options(gganimate.dev_args = list(type = "cairo-png", width = 800, height = 500))
+```
+
+```{r}
+#| label: get-data
+#| echo: false
+
+# Obter e processar dados
+dados_vida <- WDI(
+  indicator = "SP.DYN.LE00.IN",
+  country = "all",
+  start = 1960,
+  end = 2022,
+  extra = TRUE
+) |>
+  filter(region != "Aggregates") |>
+  mutate(
+    faixa_etaria = cut(
+      SP.DYN.LE00.IN,
+      breaks = c(0, 20, 40, 60, 80, 100, Inf),
+      labels = c("0-20", "21-40", "41-60", "61-80", "81-100", "100+"),
+      right = FALSE
+    )
+  ) |>
+  filter(!is.na(SP.DYN.LE00.IN), !is.na(iso2c))
+
+# Dados do mapa - removendo NAs
+mapa_mundi <- ne_countries(scale = "medium", returnclass = "sf") |>
+  left_join(dados_vida, by = c("iso_a2" = "iso2c")) |>
+  filter(!is.na(faixa_etaria))  # Remove países sem classificação
+```
+
+```{r}
+#| label: render-map
+#| echo: false
+#| warning: false
+#| fig-width: 10
+#| fig-height: 6
+#| fig-align: center
+
+# Criar animação com velocidade reduzida
+anim <- ggplot(mapa_mundi) +
+  geom_sf(aes(fill = faixa_etaria), color = "white", size = 0.1) +
+  scale_fill_viridis_d(
+    option = "plasma",
+    name = "Faixa Etária (anos)",
+    na.translate = FALSE  # Remove NA da legenda
+  ) +
+  labs(
+    title = "Evolução da Expectativa de Vida Mundial",
+    subtitle = "Ano: {current_frame}",
+    caption = "Fonte: Banco Mundial | Indicador SP.DYN.LE00.IN"
+  ) +
+  theme_void(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 18),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40", size = 16),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold", size = 12),
+    legend.text = element_text(size = 10)
+  ) +
+  transition_manual(year) +
+  enter_fade() +
+  exit_fade()
+
+# Renderizar com velocidade reduzida
+animate(
+  anim,
+  fps = 2,  # Reduzido para 2 frames por segundo
+  duration = 40,  # Duração total aumentada
+  renderer = gifski_renderer(),
+  end_pause = 15  # Pausa mais longa no final
+)
+```
+
+## 3 FONTE DE DADOS
+
+Os dados utilizados neste estudo foram obtidos do World Development Indicators (WDI) do Banco Mundial, especificamente o indicador SP.DYN.LE00.IN, que mensura a expectativa de vida ao nascer em anos. A base de dados abrange informações de todos os países disponíveis no período de 1960 a 2022, totalizando 63 anos de observações. Para a representação cartográfica, foram utilizados dados geoespaciais provenientes da biblioteca Natural Earth, que fornece limites territoriais em formato shapefile. Os dados foram processados para remoção de agregados regionais e países com informações ausentes ou incompletas.
+
+## 4 METODOLOGIA
+
+A metodologia empregada baseou-se na classificação da expectativa de vida em seis faixas etárias: 0-20 anos, 21-40 anos, 41-60 anos, 61-80 anos, 81-100 anos e acima de 100 anos. Esta classificação permite identificar países com expectativas de vida extremamente baixas (típicas de contextos de conflito ou crise humanitária), baixas (países em desenvolvimento), moderadas (países de renda média), altas (países desenvolvidos) e excepcionalmente altas (países com sistemas de saúde e bem-estar social avançados). A visualização foi desenvolvida utilizando o software R, com a biblioteca ggplot2 para criação dos mapas temáticos e gganimate para produção da animação temporal. A escala de cores viridis foi aplicada para garantir acessibilidade visual e distinção adequada entre as categorias.
+
+## 5 ANÁLISE DA EVOLUÇÃO DA EXPECTATIVA DE VIDA MUNDIAL
+
+A visualização animada apresenta a evolução da expectativa de vida mundial de 1960 a 2022, revelando transformações significativas nos padrões de longevidade global. No início do período analisado, observa-se uma predominância de países nas faixas etárias mais baixas, especialmente na África Subsaariana, partes da Ásia e algumas regiões da América Latina, com expectativas de vida frequentemente abaixo dos 60 anos. Os países desenvolvidos da Europa Ocidental, América do Norte e Oceania já apresentavam, desde 1960, expectativas de vida na faixa de 61-80 anos.
+
+### 5.1 Padrões Regionais e Temporais
+
+Ao longo das décadas subsequentes, verifica-se uma transição gradual de muitos países para faixas etárias superiores, refletindo melhorias nas condições de saúde pública, avanços médicos, redução da mortalidade infantil e desenvolvimento socioeconômico. A região da Ásia Oriental apresenta o progresso mais notável, com países como Coreia do Sul e Singapura transitando das faixas intermediárias para as superiores entre as décadas de 1980 e 2000. O Japão destaca-se como pioneiro, atingindo consistentemente a faixa de 81-100 anos a partir dos anos 1990, estabelecendo-se como referência mundial em longevidade.
+
+### 5.2 Disparidades e Convergências
+
+A análise temporal revela a persistência de disparidades significativas entre regiões. Enquanto países europeus, da América do Norte e alguns asiáticos demonstram trajetórias ascendentes consistentes, muitos países da África Subsaariana permanecem nas faixas mais baixas durante todo o período analisado. Países como Chade, República Centro-Africana e Nigéria mantêm expectativas de vida na faixa de 41-60 anos mesmo nas décadas mais recentes, evidenciando os desafios relacionados a conflitos, epidemias (HIV/AIDS, malária), instabilidade política e limitações nos sistemas de saúde.
+
+### 5.3 Impactos de Eventos Históricos
+
+A visualização permite identificar o impacto de eventos históricos específicos na expectativa de vida. Observa-se declínios temporários em alguns países do Leste Europeu durante as décadas de 1990 e 2000, relacionados às transformações pós-soviéticas. Similarmente, alguns países africanos apresentam flutuações nas décadas de 1990 e 2000, coincidindo com o pico da epidemia de HIV/AIDS. Mais recentemente, é possível observar o impacto da pandemia de COVID-19 nos dados de 2020-2022, com alguns países apresentando reduções nas expectativas de vida.
+
+### 5.4 Tendências Contemporâneas
+
+No período mais recente (2010-2022), identifica-se uma tendência de convergência limitada, com alguns países em desenvolvimento avançando para faixas superiores, particularmente na América Latina e Ásia. No entanto, a África Subsaariana ainda apresenta o maior número de países nas faixas mais baixas, indicando a necessidade de políticas públicas específicas e cooperação internacional para reduzir essas disparidades. A faixa de 81-100 anos, que inicialmente incluía apenas o Japão, expandiu-se para incluir outros países desenvolvidos como Suíça, Singapura e alguns países nórdicos, demonstrando os avanços na medicina geriátrica e qualidade de vida.
+
+## 6 CONSIDERAÇÕES FINAIS
+
+A análise da evolução da expectativa de vida mundial por faixas etárias no período de 1960 a 2022 revela um panorama complexo de progressos e desafios persistentes. Embora se observe uma tendência geral de melhoria nos indicadores de longevidade, as disparidades regionais permanecem significativas, refletindo desigualdades estruturais no desenvolvimento humano. Os resultados evidenciam a importância de políticas públicas integradas que abordem não apenas aspectos sanitários, mas também determinantes sociais da saúde, como educação, renda, saneamento básico e acesso a serviços de saúde de qualidade. A visualização temporal permite compreender que os avanços na expectativa de vida são processos graduais que requerem investimentos sustentados em longo prazo, bem como a necessidade de ações coordenadas em âmbito global para reduzir as disparidades entre países e regiões.
